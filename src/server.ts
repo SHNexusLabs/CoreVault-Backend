@@ -17,6 +17,9 @@ import adminCategoryRoutes from "./routes/admin-category.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 import { notFoundHandler } from "./middleware/not-found.middleware.js";
 
+import orderRoutes from "./routes/order.routes.js";
+import adminOrderRoutes from "./routes/admin-order.routes.js";
+
 const app = express();
 
 const PORT = Number(process.env.PORT) || 4000;
@@ -42,6 +45,9 @@ app.use("/api/admin/brands", adminBrandRoutes);
 
 app.use("/api/categories", categoryRoutes);
 app.use("/api/admin/categories", adminCategoryRoutes);
+
+app.use("/api/orders", orderRoutes);
+app.use("/api/admin/orders", adminOrderRoutes);
 
 app.use(notFoundHandler);
 
