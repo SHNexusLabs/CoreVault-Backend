@@ -3,6 +3,8 @@ import express from "express";
 import cors from "cors";
 
 import authRoutes from "./routes/auth.routes.js";
+import productRoutes from "./routes/product.routes.js";
+import adminProductRoutes from "./routes/admin-product.routes.js";
 
 const app = express();
 
@@ -19,6 +21,8 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/admin/products", adminProductRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 TechStore API running on port ${PORT}`);
