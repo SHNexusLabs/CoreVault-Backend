@@ -7,11 +7,84 @@ import {
   updateOrderStatus,
 } from "../services/admin-order.service.js";
 
+import { updatePaymentStatus } from "../services/payment.service.js";
+
+import { PaymentStatus } from "../generated/prisma/client.js";
 import { OrderStatus } from "../generated/prisma/client.js";
 
 const updateStatusSchema = z.object({
   status: z.enum(OrderStatus),
 });
+
+const updatePaymentStatusSchema = z.object({
+  paymentStatus: z.enum(PaymentStatus),
+});
+
+export async function updateAdminPaymentStatus(
+  req: Request,
+  res: Response,
+) {
+  const id = req.params.id;
+
+  if (typeof id !== "string" || !id) {
+    return res.status(400).json({
+      success: false,
+      message: "Order ID is required",
+    });
+  }
+
+  const result = updatePaymentStatusSchema.safeParse(req.body);
+
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid payment status",
+      errors: result.error.flatten().fieldErrors,
+    });
+  }
+
+  try {
+    const order = await updatePaymentStatus(
+      id,
+      result.data.paymentStatus,
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment status updated successfully",
+      order,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "ORDER_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found",
+        });
+      }
+
+      if (
+        error.message ===
+        "INVALID_PAYMENT_STATUS_TRANSITION"
+      ) {
+        return res.status(409).json({
+          success: false,
+          message: "This payment status transition is not allowed",
+        });
+      }
+    }
+
+    console.error(
+      "Update admin payment status error:",
+      error,
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update payment status",
+    });
+  }
+}
 
 export async function getAdminOrderList(_req: Request, res: Response) {
   try {
