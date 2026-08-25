@@ -20,6 +20,8 @@ import { notFoundHandler } from "./middleware/not-found.middleware.js";
 import orderRoutes from "./routes/order.routes.js";
 import adminOrderRoutes from "./routes/admin-order.routes.js";
 
+import cartRoutes from "./routes/cart.routes.js";
+
 const app = express();
 
 const PORT = Number(process.env.PORT) || 4000;
@@ -48,6 +50,8 @@ app.use("/api/admin/categories", adminCategoryRoutes);
 
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin/orders", adminOrderRoutes);
+
+app.use("/api/cart", cartRoutes);
 
 app.use(notFoundHandler);
 
