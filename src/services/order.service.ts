@@ -57,7 +57,7 @@ export async function createOrder(input: CreateOrderInput) {
   );
 
   return prisma.$transaction(async (tx) => {
-        /*
+    /*
      * The address must belong to the authenticated user.
      *
      * We fetch it inside the transaction so the order always uses
@@ -217,6 +217,23 @@ export async function createOrder(input: CreateOrderInput) {
         },
       });
     }
+
+    /*
+     * Remove the purchased products from the user's cart.
+     *
+     * This happens inside the same transaction as the order and
+     * stock update. If anything fails, the cart is also preserved.
+     */
+    await tx.cartItem.deleteMany({
+      where: {
+        cart: {
+          userId: input.userId,
+        },
+        productId: {
+          in: normalizedItems.map((item) => item.productId),
+        },
+      },
+    });
 
     return order;
   });
