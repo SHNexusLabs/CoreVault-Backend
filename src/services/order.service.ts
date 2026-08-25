@@ -16,7 +16,7 @@ export type CreateOrderInput = {
   items: CreateOrderItemInput[];
   paymentMethod: PaymentMethod;
   deliveryMethod: DeliveryMethod;
-  shippingDetails: Prisma.InputJsonValue;
+  addressId: string;
 };
 
 /*
@@ -57,6 +57,39 @@ export async function createOrder(input: CreateOrderInput) {
   );
 
   return prisma.$transaction(async (tx) => {
+        /*
+     * The address must belong to the authenticated user.
+     *
+     * We fetch it inside the transaction so the order always uses
+     * an address that belongs to this customer.
+     */
+    const address = await tx.address.findFirst({
+      where: {
+        id: input.addressId,
+        userId: input.userId,
+      },
+    });
+
+    if (!address) {
+      throw new Error("ADDRESS_NOT_FOUND");
+    }
+
+    /*
+     * Store the address as a snapshot on the order.
+     *
+     * Future changes to the customer's saved address will not
+     * modify the historical shipping information on this order.
+     */
+    const shippingDetails: Prisma.InputJsonValue = {
+      fullName: address.fullName,
+      phone: address.phone,
+      address: address.address,
+      city: address.city,
+      state: address.state,
+      pinCode: address.pinCode,
+      country: address.country,
+    };
+
     /*
      * Use Prisma.Decimal for all money calculations.
      *
@@ -148,7 +181,7 @@ export async function createOrder(input: CreateOrderInput) {
         tax,
         total,
 
-        shippingDetails: input.shippingDetails,
+        shippingDetails,
 
         items: {
           create: orderItems.map((item) => ({

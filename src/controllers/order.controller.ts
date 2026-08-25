@@ -22,10 +22,7 @@ const createOrderSchema = z.object({
   paymentMethod: z.enum(PaymentMethod),
   deliveryMethod: z.enum(DeliveryMethod),
 
-  shippingDetails: z.record(
-    z.string(),
-    z.union([z.string(), z.number(), z.boolean()]),
-  ),
+  addressId: z.string().uuid(),
 });
 
 /*
@@ -65,7 +62,7 @@ export async function createCustomerOrder(req: Request, res: Response) {
       items: result.data.items,
       paymentMethod: result.data.paymentMethod,
       deliveryMethod: result.data.deliveryMethod,
-      shippingDetails: result.data.shippingDetails,
+      addressId: result.data.addressId,
     });
 
     return res.status(201).json({
@@ -86,6 +83,13 @@ export async function createCustomerOrder(req: Request, res: Response) {
         return res.status(400).json({
           success: false,
           message: "Product quantity must be greater than zero",
+        });
+      }
+
+      if (error.message === "ADDRESS_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "Shipping address not found",
         });
       }
 
