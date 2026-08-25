@@ -289,3 +289,68 @@ export async function getUserOrder(userId: string, orderId: string) {
 
   return order;
 }
+
+/*
+ * Cancels an order belonging to the authenticated user.
+ *
+ * Cancellation and stock restoration happen inside one transaction.
+ * This prevents the order from being cancelled while stock restoration
+ * fails halfway through.
+ */
+export async function cancelOrder(userId: string, orderId: string) {
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.order.findFirst({
+      where: {
+        id: orderId,
+        userId,
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    if (!order) {
+      throw new Error("ORDER_NOT_FOUND");
+    }
+
+    /*
+     * Customers can only cancel orders while they are pending.
+     *
+     * Once processing begins, the order has entered fulfillment
+     * and can no longer be cancelled through the customer API.
+     */
+    if (order.status !== "PENDING") {
+      throw new Error("ORDER_CANNOT_BE_CANCELLED");
+    }
+
+    const updatedOrder = await tx.order.update({
+      where: {
+        id: order.id,
+      },
+      data: {
+        status: "CANCELLED",
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    /*
+     * Return the purchased quantity to product stock.
+     */
+    for (const item of order.items) {
+      await tx.product.update({
+        where: {
+          id: item.productId,
+        },
+        data: {
+          stock: {
+            increment: item.quantity,
+          },
+        },
+      });
+    }
+
+    return updatedOrder;
+  });
+}

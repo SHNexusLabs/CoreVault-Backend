@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import {
+  cancelOrder,
   createOrder,
   getUserOrder,
   getUserOrders,
@@ -192,6 +193,66 @@ export async function getCustomerOrder(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: "Unable to retrieve order",
+    });
+  }
+}
+
+/*
+ * PATCH /api/orders/:id/cancel
+ *
+ * Cancels an order belonging to the authenticated customer.
+ *
+ * The service also restores the purchased stock inside the
+ * same database transaction.
+ */
+export async function cancelCustomerOrder(req: Request, res: Response) {
+  const userId = req.user?.id;
+  const orderId = req.params.id;
+
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+
+  if (typeof orderId !== "string" || !orderId) {
+    return res.status(400).json({
+      success: false,
+      message: "Order ID is required",
+    });
+  }
+
+  try {
+    const order = await cancelOrder(userId, orderId);
+
+    return res.status(200).json({
+      success: true,
+      message: "Order cancelled successfully",
+      order,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "ORDER_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found",
+        });
+      }
+
+      if (error.message === "ORDER_CANNOT_BE_CANCELLED") {
+        return res.status(409).json({
+          success: false,
+          message: "This order can no longer be cancelled",
+        });
+      }
+    }
+
+    console.error("Cancel order error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to cancel order",
     });
   }
 }

@@ -3,6 +3,7 @@ import { Router } from "express";
 import { authenticate } from "../middleware/auth.middleware.js";
 
 import {
+  cancelCustomerOrder,
   createCustomerOrder,
   getCustomerOrder,
   getCustomerOrders,
@@ -18,5 +19,6 @@ router.use(authenticate);
 router.post("/", createCustomerOrder);
 router.get("/", getCustomerOrders);
 router.get("/:id", getCustomerOrder);
+router.patch("/:id/cancel", cancelCustomerOrder);
 
 export default router;
