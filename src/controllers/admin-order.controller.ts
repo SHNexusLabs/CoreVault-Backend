@@ -94,14 +94,27 @@ export async function updateAdminOrderStatus(req: Request, res: Response) {
       order,
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "INVALID_STATUS_TRANSITION"
-    ) {
-      return res.status(409).json({
-        success: false,
-        message: "This order status transition is not allowed",
-      });
+    if (error instanceof Error) {
+      if (error.message === "ORDER_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found",
+        });
+      }
+
+      if (error.message === "INVALID_STATUS_TRANSITION") {
+        return res.status(409).json({
+          success: false,
+          message: "This order status transition is not allowed",
+        });
+      }
     }
+
+    console.error("Update admin order status error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update order status",
+    });
   }
 }
