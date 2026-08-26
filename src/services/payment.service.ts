@@ -108,3 +108,72 @@ export function validatePaymentMethod(paymentMethod: PaymentMethod) {
     requiresOnlinePayment: true,
   };
 }
+
+/*
+ * Prepares an online payment attempt for an authenticated customer's
+ * order.
+ *
+ * This does not contact a payment gateway yet. It establishes the
+ * contract that a future Razorpay/Stripe integration will use.
+ */
+export async function initiatePayment(userId: string, orderId: string) {
+  const order = await prisma.order.findFirst({
+    where: {
+      id: orderId,
+      userId,
+    },
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      paymentMethod: true,
+      paymentStatus: true,
+      total: true,
+    },
+  });
+
+  if (!order) {
+    throw new Error("ORDER_NOT_FOUND");
+  }
+
+  /*
+   * COD does not require an online payment attempt.
+   */
+  if (order.paymentMethod === PaymentMethod.COD) {
+    throw new Error("ONLINE_PAYMENT_NOT_REQUIRED");
+  }
+
+  /*
+   * Only pending payments can be initiated.
+   *
+   * A FAILED payment can first be moved back to PENDING by the
+   * payment retry flow before initiating another attempt.
+   */
+  if (order.paymentStatus !== PaymentStatus.PENDING) {
+    throw new Error("PAYMENT_CANNOT_BE_INITIATED");
+  }
+
+  /*
+   * Make sure the order itself hasn't already reached a terminal
+   * state where a new payment should not be started.
+   */
+  if (order.status === "CANCELLED" || order.status === "DELIVERED") {
+    throw new Error("ORDER_CANNOT_BE_PAID");
+  }
+
+  /*
+   * Temporary payment response.
+   *
+   * A real payment provider will eventually replace this with
+   * provider-specific data such as a payment/order ID.
+   */
+  return {
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    amount: order.total,
+    currency: "INR",
+    requiresOnlinePayment: true,
+  };
+}
