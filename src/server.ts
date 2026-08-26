@@ -25,6 +25,9 @@ import wishlistRoutes from "./routes/wishlist.routes.js";
 import addressRoutes from "./routes/address.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 
+import reviewRoutes from "./routes/review.routes.js";
+import adminReviewRoutes from "./routes/admin-review.routes.js";
+
 const app = express();
 
 const PORT = Number(process.env.PORT) || 4000;
@@ -59,6 +62,9 @@ app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
+
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/admin/reviews", adminReviewRoutes);
 
 app.use(notFoundHandler);
 
