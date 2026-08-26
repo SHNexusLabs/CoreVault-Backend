@@ -32,6 +32,7 @@ import returnRoutes from "./routes/return.routes.js";
 import adminReturnRoutes from "./routes/admin-return.routes.js";
 
 import adminDashboardRoutes from "./routes/admin-dashboard.routes.js";
+import adminInventoryRoutes from "./routes/admin-inventory.routes.js";
 
 const app = express();
 
@@ -75,6 +76,7 @@ app.use("/api/returns", returnRoutes);
 app.use("/api/admin/returns", adminReturnRoutes);
 
 app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/api/admin/inventory", adminInventoryRoutes);
 
 app.use(notFoundHandler);
 
