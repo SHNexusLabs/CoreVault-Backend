@@ -34,6 +34,25 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  RECEIVED
+  COMPLETED
+  CANCELLED
+}
+
+enum RefundStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  FAILED
+  REJECTED
+}
+
 enum DeliveryMethod {
   STANDARD
   EXPRESS
@@ -56,6 +75,11 @@ model User {
   wishlistItems WishlistItem[]
   adminActivity AdminActivity[] @relation("AdminActivityUser")
   cart          Cart?
+
+  returnRequests  ReturnRequest[]
+  approvedReturns ReturnRequest[] @relation("ReturnApprovedBy")
+
+  approvedRefunds ReturnRequest[] @relation("RefundApprovedBy")
 
   @@map("users")
 }
@@ -191,6 +215,8 @@ model Order {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  returnRequests ReturnRequest[]
+
   user  User        @relation(fields: [userId], references: [id])
   items OrderItem[]
 
@@ -213,9 +239,64 @@ model OrderItem {
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
 
+  returnItems ReturnItem[]
+
   @@index([orderId])
   @@index([productId])
   @@map("order_items")
+}
+
+model ReturnRequest {
+  id        String @id @default(uuid())
+  orderId   String @map("order_id")
+  userId    String @map("user_id")
+
+  reason    String
+  status    ReturnStatus @default(REQUESTED)
+
+  refundAmount Decimal @default(0) @map("refund_amount") @db.Decimal(12, 2)
+  refundStatus RefundStatus @default(NOT_REQUIRED) @map("refund_status")
+
+  adminNote String? @map("admin_note")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  returnApprovedById String? @map("return_approved_by_id")
+  returnApprovedAt   DateTime? @map("return_approved_at")
+
+  refundApprovedById String? @map("refund_approved_by_id")
+  refundApprovedAt   DateTime? @map("refund_approved_at")
+
+  returnApprovedBy User? @relation("ReturnApprovedBy", fields: [returnApprovedById], references: [id])
+  refundApprovedBy User? @relation("RefundApprovedBy", fields: [refundApprovedById], references: [id])
+
+  order Order @relation(fields: [orderId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  items ReturnItem[]
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@index([refundStatus])
+  @@index([createdAt])
+  @@map("return_requests")
+}
+
+model ReturnItem {
+  id             String @id @default(uuid())
+  returnRequestId String @map("return_request_id")
+  orderItemId     String @map("order_item_id")
+
+  quantity Int
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItem     OrderItem     @relation(fields: [orderItemId], references: [id])
+
+  @@index([returnRequestId])
+  @@index([orderItemId])
+  @@map("return_items")
 }
 
 model Review {

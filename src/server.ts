@@ -28,6 +28,9 @@ import paymentRoutes from "./routes/payment.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import adminReviewRoutes from "./routes/admin-review.routes.js";
 
+import returnRoutes from "./routes/return.routes.js";
+import adminReturnRoutes from "./routes/admin-return.routes.js";
+
 import adminDashboardRoutes from "./routes/admin-dashboard.routes.js";
 
 const app = express();
@@ -67,6 +70,9 @@ app.use("/api/payments", paymentRoutes);
 
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/admin/reviews", adminReviewRoutes);
+
+app.use("/api/returns", returnRoutes);
+app.use("/api/admin/returns", adminReturnRoutes);
 
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 
