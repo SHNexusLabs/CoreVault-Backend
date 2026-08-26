@@ -20,10 +20,15 @@ const updatePaymentStatusSchema = z.object({
   paymentStatus: z.enum(PaymentStatus),
 });
 
-export async function updateAdminPaymentStatus(
-  req: Request,
-  res: Response,
-) {
+const adminOrderQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+
+  status: z.enum(OrderStatus).optional(),
+});
+
+export async function updateAdminPaymentStatus(req: Request, res: Response) {
   const id = req.params.id;
 
   if (typeof id !== "string" || !id) {
@@ -44,10 +49,7 @@ export async function updateAdminPaymentStatus(
   }
 
   try {
-    const order = await updatePaymentStatus(
-      id,
-      result.data.paymentStatus,
-    );
+    const order = await updatePaymentStatus(id, result.data.paymentStatus);
 
     return res.status(200).json({
       success: true,
@@ -63,10 +65,7 @@ export async function updateAdminPaymentStatus(
         });
       }
 
-      if (
-        error.message ===
-        "INVALID_PAYMENT_STATUS_TRANSITION"
-      ) {
+      if (error.message === "INVALID_PAYMENT_STATUS_TRANSITION") {
         return res.status(409).json({
           success: false,
           message: "This payment status transition is not allowed",
@@ -74,10 +73,7 @@ export async function updateAdminPaymentStatus(
       }
     }
 
-    console.error(
-      "Update admin payment status error:",
-      error,
-    );
+    console.error("Update admin payment status error:", error);
 
     return res.status(500).json({
       success: false,
@@ -86,13 +82,23 @@ export async function updateAdminPaymentStatus(
   }
 }
 
-export async function getAdminOrderList(_req: Request, res: Response) {
+export async function getAdminOrderList(req: Request, res: Response) {
+  const result = adminOrderQuerySchema.safeParse(req.query);
+
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid order query",
+      errors: result.error.flatten().fieldErrors,
+    });
+  }
+
   try {
-    const orders = await getAdminOrders();
+    const data = await getAdminOrders(result.data);
 
     return res.status(200).json({
       success: true,
-      orders,
+      ...data,
     });
   } catch (error) {
     console.error("Get admin orders error:", error);

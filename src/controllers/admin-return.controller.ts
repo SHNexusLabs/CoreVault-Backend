@@ -14,19 +14,39 @@ import {
   startRefundProcessing,
 } from "../services/refund.service.js";
 
-import { ReturnStatus } from "../generated/prisma/client.js";
+import { RefundStatus, ReturnStatus } from "../generated/prisma/client.js";
 
 const updateReturnStatusSchema = z.object({
   status: z.enum(ReturnStatus),
 });
 
-export async function getAdminReturnList(_req: Request, res: Response) {
+const adminReturnQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+
+  status: z.enum(ReturnStatus).optional(),
+
+  refundStatus: z.enum(RefundStatus).optional(),
+});
+
+export async function getAdminReturnList(req: Request, res: Response) {
+  const result = adminReturnQuerySchema.safeParse(req.query);
+
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid return query",
+      errors: result.error.flatten().fieldErrors,
+    });
+  }
+
   try {
-    const returns = await getAdminReturns();
+    const data = await getAdminReturns(result.data);
 
     return res.status(200).json({
       success: true,
-      returns,
+      ...data,
     });
   } catch (error) {
     console.error("Get admin returns error:", error);

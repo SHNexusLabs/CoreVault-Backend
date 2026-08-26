@@ -4,9 +4,16 @@ import { z } from "zod";
 import { getAdminActivities } from "../services/admin-activity.service.js";
 
 const activityQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+
   action: z.string().trim().min(1).optional(),
+
   entityType: z.string().trim().min(1).optional(),
+
   entityId: z.string().uuid().optional(),
+
   userId: z.string().uuid().optional(),
 });
 
@@ -22,11 +29,10 @@ export async function getAdminActivityList(req: Request, res: Response) {
   }
 
   try {
-    const activities = await getAdminActivities(result.data);
-
+    const data = await getAdminActivities(result.data);
     return res.status(200).json({
       success: true,
-      activities,
+      ...data,
     });
   } catch (error) {
     console.error("Get admin activity error:", error);

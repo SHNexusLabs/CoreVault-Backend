@@ -2,35 +2,67 @@ import { OrderStatus, Prisma } from "../generated/prisma/client.js";
 
 import { prisma } from "../lib/prisma.js";
 
-export async function getAdminOrders() {
-  return prisma.order.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-        },
-      },
-      items: {
-        select: {
-          id: true,
-          productId: true,
-          productName: true,
-          sku: true,
-          unitPrice: true,
-          quantity: true,
-          subtotal: true,
-        },
-      },
-    },
-  });
-}
+export type AdminOrderListOptions = {
+  page: number;
+  limit: number;
+  status?: OrderStatus;
+};
 
+export async function getAdminOrders(options: AdminOrderListOptions) {
+  const { page, limit, status } = options;
+
+  const where = {
+    ...(status ? { status } : {}),
+  };
+
+  const skip = (page - 1) * limit;
+
+  const [orders, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        items: {
+          select: {
+            id: true,
+            productId: true,
+            productName: true,
+            sku: true,
+            unitPrice: true,
+            quantity: true,
+            subtotal: true,
+          },
+        },
+      },
+    }),
+
+    prisma.order.count({
+      where,
+    }),
+  ]);
+
+  return {
+    orders,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
 export async function getAdminOrder(orderId: string) {
   const order = await prisma.order.findUnique({
     where: {

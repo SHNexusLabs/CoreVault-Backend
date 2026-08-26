@@ -10,13 +10,34 @@ const updateApprovalSchema = z.object({
   isApproved: z.boolean(),
 });
 
-export async function getAdminReviewList(_req: Request, res: Response) {
+const adminReviewQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+
+  isApproved: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
+});
+
+export async function getAdminReviewList(req: Request, res: Response) {
+  const result = adminReviewQuerySchema.safeParse(req.query);
+
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid review query",
+      errors: result.error.flatten().fieldErrors,
+    });
+  }
+
   try {
-    const reviews = await getAdminReviews();
+    const data = await getAdminReviews(result.data);
 
     return res.status(200).json({
       success: true,
-      reviews,
+      ...data,
     });
   } catch (error) {
     console.error("Get admin reviews error:", error);

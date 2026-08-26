@@ -2,29 +2,62 @@ import { Prisma } from "../generated/prisma/client.js";
 
 import { prisma } from "../lib/prisma.js";
 
-export async function getAdminReviews() {
-  return prisma.review.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
+export type AdminReviewListOptions = {
+  page: number;
+  limit: number;
+  isApproved?: boolean;
+};
+
+export async function getAdminReviews(options: AdminReviewListOptions) {
+  const { page, limit, isApproved } = options;
+
+  const where = {
+    ...(isApproved !== undefined ? { isApproved } : {}),
+  };
+
+  const skip = (page - 1) * limit;
+
+  const [reviews, total] = await Promise.all([
+    prisma.review.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            sku: true,
+          },
         },
       },
-      product: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          sku: true,
-        },
-      },
+    }),
+
+    prisma.review.count({
+      where,
+    }),
+  ]);
+
+  return {
+    reviews,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
     },
-  });
+  };
 }
 
 export async function updateReviewApproval(

@@ -1,4 +1,4 @@
-import { ReturnStatus } from "../generated/prisma/client.js";
+import { RefundStatus, ReturnStatus } from "../generated/prisma/client.js";
 
 import { prisma } from "../lib/prisma.js";
 
@@ -20,53 +20,96 @@ const allowedTransitions: Record<ReturnStatus, ReturnStatus[]> = {
   CANCELLED: [],
 };
 
-export async function getAdminReturns() {
-  return prisma.returnRequest.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-        },
+export type AdminReturnListOptions = {
+  page: number;
+  limit: number;
+  status?: ReturnStatus;
+  refundStatus?: RefundStatus;
+};
+
+export async function getAdminReturns(options: AdminReturnListOptions) {
+  const { page, limit, status, refundStatus } = options;
+
+  const where = {
+    ...(status ? { status } : {}),
+    ...(refundStatus ? { refundStatus } : {}),
+  };
+
+  const skip = (page - 1) * limit;
+
+  const [returns, total] = await Promise.all([
+    prisma.returnRequest.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: "desc",
       },
-      order: {
-        select: {
-          id: true,
-          orderNumber: true,
-          status: true,
-          total: true,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
         },
-      },
-      items: {
-        include: {
-          orderItem: {
-            select: {
-              id: true,
-              productId: true,
-              productName: true,
-              sku: true,
-              unitPrice: true,
-              quantity: true,
-              subtotal: true,
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            total: true,
+          },
+        },
+        items: {
+          include: {
+            orderItem: {
+              select: {
+                id: true,
+                productId: true,
+                productName: true,
+                sku: true,
+                unitPrice: true,
+                quantity: true,
+                subtotal: true,
+              },
             },
           },
         },
-      },
-      approvedBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
+        returnApprovedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+        refundApprovedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
         },
       },
+    }),
+
+    prisma.returnRequest.count({
+      where,
+    }),
+  ]);
+
+  return {
+    returns,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
     },
-  });
+  };
 }
 
 export async function getAdminReturn(returnId: string) {
