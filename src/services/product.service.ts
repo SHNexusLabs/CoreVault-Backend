@@ -153,6 +153,28 @@ export async function getProductBySlug(slug: string) {
           slug: true,
         },
       },
+      reviews: {
+        where: {
+          isApproved: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        select: {
+          id: true,
+          rating: true,
+          title: true,
+          comment: true,
+          isVerified: true,
+          createdAt: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
     },
   });
 }

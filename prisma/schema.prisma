@@ -74,6 +74,7 @@ model User {
   reviews       Review[]
   wishlistItems WishlistItem[]
   adminActivity AdminActivity[] @relation("AdminActivityUser")
+  notifications Notification[]
   cart          Cart?
 
   returnRequests  ReturnRequest[]
@@ -346,4 +347,26 @@ model AdminActivity {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("admin_activity")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false) @map("is_read")
+
+  entityType String? @map("entity_type")
+  entityId   String? @map("entity_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
 }

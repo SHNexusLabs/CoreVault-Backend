@@ -36,6 +36,8 @@ import adminInventoryRoutes from "./routes/admin-inventory.routes.js";
 import adminActivityRoutes from "./routes/admin-activity.routes.js";
 import adminCustomerRoutes from "./routes/admin-customer.routes.js";
 
+import notificationRoutes from "./routes/notification.routes.js";
+
 const app = express();
 
 const PORT = Number(process.env.PORT) || 4000;
@@ -80,6 +82,8 @@ app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/admin/inventory", adminInventoryRoutes);
 app.use("/api/admin/activity", adminActivityRoutes);
 app.use("/api/admin/customers", adminCustomerRoutes);
+
+app.use("/api/notifications", notificationRoutes);
 
 app.use(notFoundHandler);
 

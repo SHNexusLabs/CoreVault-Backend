@@ -1,5 +1,6 @@
 import {
   DeliveryMethod,
+  OrderStatus,
   PaymentMethod,
   Prisma,
 } from "../generated/prisma/client.js";
@@ -17,6 +18,12 @@ export type CreateOrderInput = {
   paymentMethod: PaymentMethod;
   deliveryMethod: DeliveryMethod;
   addressId: string;
+};
+
+export type UserOrderListOptions = {
+  page: number;
+  limit: number;
+  status?: OrderStatus;
 };
 
 /*
@@ -245,28 +252,56 @@ export async function createOrder(input: CreateOrderInput) {
  * We filter by userId in the database query itself, so a customer
  * cannot retrieve another customer's orders by changing an ID.
  */
-export async function getUserOrders(userId: string) {
-  return prisma.order.findMany({
-    where: {
-      userId,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    include: {
-      items: {
-        select: {
-          id: true,
-          productId: true,
-          productName: true,
-          sku: true,
-          unitPrice: true,
-          quantity: true,
-          subtotal: true,
+export async function getUserOrders(
+  userId: string,
+  options: UserOrderListOptions,
+) {
+  const { page, limit, status } = options;
+
+  const where = {
+    userId,
+    ...(status ? { status } : {}),
+  };
+
+  const skip = (page - 1) * limit;
+
+  const [orders, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        items: {
+          select: {
+            id: true,
+            productId: true,
+            productName: true,
+            sku: true,
+            unitPrice: true,
+            quantity: true,
+            subtotal: true,
+          },
         },
       },
+    }),
+
+    prisma.order.count({
+      where,
+    }),
+  ]);
+
+  return {
+    orders,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
     },
-  });
+  };
 }
 
 /*

@@ -2,13 +2,17 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import {
+  DeliveryMethod,
+  OrderStatus,
+  PaymentMethod,
+} from "../generated/prisma/client.js";
+
+import {
   cancelOrder,
   createOrder,
   getUserOrder,
   getUserOrders,
 } from "../services/order.service.js";
-
-import { DeliveryMethod, PaymentMethod } from "../generated/prisma/client.js";
 
 const createOrderSchema = z.object({
   items: z
@@ -24,6 +28,14 @@ const createOrderSchema = z.object({
   deliveryMethod: z.enum(DeliveryMethod),
 
   addressId: z.string().uuid(),
+});
+
+const orderQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+
+  status: z.enum(OrderStatus).optional(),
 });
 
 /*
@@ -133,12 +145,22 @@ export async function getCustomerOrders(req: Request, res: Response) {
     });
   }
 
+  const result = orderQuerySchema.safeParse(req.query);
+
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid order query",
+      errors: result.error.flatten().fieldErrors,
+    });
+  }
+
   try {
-    const orders = await getUserOrders(userId);
+    const data = await getUserOrders(userId, result.data);
 
     return res.status(200).json({
       success: true,
-      orders,
+      ...data,
     });
   } catch (error) {
     console.error("Get orders error:", error);
@@ -149,7 +171,6 @@ export async function getCustomerOrders(req: Request, res: Response) {
     });
   }
 }
-
 /*
  * GET /api/orders/:id
  *

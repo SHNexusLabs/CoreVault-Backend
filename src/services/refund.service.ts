@@ -28,9 +28,15 @@ export async function approveRefund(returnId: string, adminUserId: string) {
       },
       select: {
         id: true,
+        userId: true,
         status: true,
         refundStatus: true,
         refundAmount: true,
+        order: {
+          select: {
+            orderNumber: true,
+          },
+        },
       },
     });
 
@@ -70,7 +76,7 @@ export async function approveRefund(returnId: string, adminUserId: string) {
       throw new Error("SUPER_ADMIN_APPROVAL_REQUIRED");
     }
 
-    return tx.returnRequest.update({
+    const updatedReturn = await tx.returnRequest.update({
       where: {
         id: returnId,
       },
@@ -90,6 +96,19 @@ export async function approveRefund(returnId: string, adminUserId: string) {
         },
       },
     });
+
+    await tx.notification.create({
+      data: {
+        userId: returnRequest.userId,
+        title: "Refund approved",
+        message: `Your refund of ₹${returnRequest.refundAmount.toString()} for order ${returnRequest.order.orderNumber} has been approved.`,
+        type: "REFUND_APPROVED",
+        entityType: "RETURN",
+        entityId: returnRequest.id,
+      },
+    });
+
+    return updatedReturn;
   });
 }
 
@@ -104,21 +123,18 @@ export async function updateRefundStatus(
       },
       select: {
         id: true,
+        userId: true,
         refundStatus: true,
+        refundAmount: true,
+        order: {
+          select: {
+            orderNumber: true,
+          },
+        },
       },
     });
 
-    if (!returnRequest) {
-      throw new Error("RETURN_NOT_FOUND");
-    }
-
-    if (
-      !allowedRefundTransitions[returnRequest.refundStatus].includes(status)
-    ) {
-      throw new Error("INVALID_REFUND_STATUS_TRANSITION");
-    }
-
-    return tx.returnRequest.update({
+    const updatedReturn = await tx.returnRequest.update({
       where: {
         id: returnId,
       },
@@ -135,6 +151,53 @@ export async function updateRefundStatus(
         updatedAt: true,
       },
     });
+
+    if (!returnRequest) {
+      throw new Error("RETURN_NOT_FOUND");
+    }
+
+    if (
+      !allowedRefundTransitions[returnRequest.refundStatus].includes(status)
+    ) {
+      throw new Error("INVALID_REFUND_STATUS_TRANSITION");
+    }
+
+    const notificationMessages: Partial<
+      Record<
+        RefundStatus,
+        {
+          title: string;
+          message: string;
+        }
+      >
+    > = {
+      COMPLETED: {
+        title: "Refund completed",
+        message: `Your refund of ₹${returnRequest.refundAmount.toString()} for order ${returnRequest.order.orderNumber} has been completed.`,
+      },
+
+      FAILED: {
+        title: "Refund failed",
+        message: `Your refund of ₹${returnRequest.refundAmount.toString()} for order ${returnRequest.order.orderNumber} could not be completed.`,
+      },
+    };
+
+    const notification = notificationMessages[status];
+
+    if (notification) {
+      await tx.notification.create({
+        data: {
+          userId: returnRequest.userId,
+          title: notification.title,
+          message: notification.message,
+          type: `REFUND_${status}`,
+          entityType: "RETURN",
+          entityId: returnRequest.id,
+        },
+      });
+    }
+
+    return updatedReturn;
   });
 }
 
@@ -146,9 +209,15 @@ export async function startRefundProcessing(returnId: string) {
       },
       select: {
         id: true,
+        userId: true,
         status: true,
         refundStatus: true,
         refundAmount: true,
+        order: {
+          select: {
+            orderNumber: true,
+          },
+        },
       },
     });
 
@@ -164,7 +233,7 @@ export async function startRefundProcessing(returnId: string) {
       throw new Error("REFUND_NOT_APPROVED");
     }
 
-    return tx.returnRequest.update({
+    const updatedReturn = await tx.returnRequest.update({
       where: {
         id: returnId,
       },
@@ -179,6 +248,19 @@ export async function startRefundProcessing(returnId: string) {
         updatedAt: true,
       },
     });
+
+    await tx.notification.create({
+      data: {
+        userId: returnRequest.userId,
+        title: "Refund processing",
+        message: `Your refund of ₹${returnRequest.refundAmount.toString()} for order ${returnRequest.order.orderNumber} is now being processed.`,
+        type: "REFUND_PROCESSING",
+        entityType: "RETURN",
+        entityId: returnRequest.id,
+      },
+    });
+
+    return updatedReturn;
   });
 }
 

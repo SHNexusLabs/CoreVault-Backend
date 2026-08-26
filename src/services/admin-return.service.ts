@@ -180,7 +180,7 @@ export async function updateReturnStatus(
       throw new Error("INVALID_RETURN_STATUS_TRANSITION");
     }
 
-    return tx.returnRequest.update({
+    const updatedReturn = await tx.returnRequest.update({
       where: {
         id: returnId,
       },
@@ -210,5 +210,52 @@ export async function updateReturnStatus(
         },
       },
     });
+
+    const notificationMessages: Partial<
+      Record<
+        ReturnStatus,
+        {
+          title: string;
+          message: string;
+        }
+      >
+    > = {
+      APPROVED: {
+        title: "Return approved",
+        message: `Your return request for order ${updatedReturn.order.orderNumber} has been approved.`,
+      },
+
+      REJECTED: {
+        title: "Return rejected",
+        message: `Your return request for order ${updatedReturn.order.orderNumber} has been rejected.`,
+      },
+
+      COMPLETED: {
+        title: "Return completed",
+        message: `Your return for order ${updatedReturn.order.orderNumber} has been completed.`,
+      },
+
+      CANCELLED: {
+        title: "Return cancelled",
+        message: `Your return request for order ${updatedReturn.order.orderNumber} has been cancelled.`,
+      },
+    };
+
+    const notification = notificationMessages[status];
+
+    if (notification) {
+      await tx.notification.create({
+        data: {
+          userId: updatedReturn.user.id,
+          title: notification.title,
+          message: notification.message,
+          type: `RETURN_${status}`,
+          entityType: "RETURN",
+          entityId: updatedReturn.id,
+        },
+      });
+    }
+
+    return updatedReturn;
   });
 }

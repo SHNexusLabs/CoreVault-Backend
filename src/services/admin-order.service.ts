@@ -160,7 +160,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
       }
     }
 
-    return tx.order.update({
+    const updatedOrder = await tx.order.update({
       where: {
         id: orderId,
       },
@@ -178,5 +178,53 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
         items: true,
       },
     });
+
+    const notificationMessages: Record<
+      OrderStatus,
+      {
+        title: string;
+        message: string;
+      }
+    > = {
+      PENDING: {
+        title: "Order pending",
+        message: `Your order ${updatedOrder.orderNumber} is pending.`,
+      },
+
+      PROCESSING: {
+        title: "Order processing",
+        message: `Your order ${updatedOrder.orderNumber} is now being processed.`,
+      },
+
+      SHIPPED: {
+        title: "Order shipped",
+        message: `Your order ${updatedOrder.orderNumber} has been shipped.`,
+      },
+
+      DELIVERED: {
+        title: "Order delivered",
+        message: `Your order ${updatedOrder.orderNumber} has been delivered.`,
+      },
+
+      CANCELLED: {
+        title: "Order cancelled",
+        message: `Your order ${updatedOrder.orderNumber} has been cancelled.`,
+      },
+    };
+
+    const notification = notificationMessages[updatedOrder.status];
+
+    await tx.notification.create({
+      data: {
+        userId: updatedOrder.user.id,
+        title: notification.title,
+        message: notification.message,
+        type: `ORDER_${updatedOrder.status}`,
+        entityType: "ORDER",
+        entityId: updatedOrder.id,
+      },
+    });
+
+    return updatedOrder;
   });
 }
