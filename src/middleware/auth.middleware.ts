@@ -38,7 +38,7 @@ export async function authenticate(
       role?: "CUSTOMER" | "ADMIN" | "SUPER_ADMIN";
     };
 
-    if (!payload.userId || !payload.role) {
+    if (!payload.userId) {
       return res.status(401).json({
         success: false,
         message: "Invalid authentication token",
