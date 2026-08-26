@@ -37,6 +37,7 @@ import adminActivityRoutes from "./routes/admin-activity.routes.js";
 import adminCustomerRoutes from "./routes/admin-customer.routes.js";
 
 import notificationRoutes from "./routes/notification.routes.js";
+import pcBuilderRoutes from "./routes/pc-builder.routes.js";
 
 const app = express();
 
@@ -84,6 +85,7 @@ app.use("/api/admin/activity", adminActivityRoutes);
 app.use("/api/admin/customers", adminCustomerRoutes);
 
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/pc-builder", pcBuilderRoutes);
 
 app.use(notFoundHandler);
 
