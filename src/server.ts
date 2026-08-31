@@ -41,6 +41,9 @@ import adminCustomerRoutes from "./routes/admin-customer.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import pcBuilderRoutes from "./routes/pc-builder.routes.js";
 
+import couponRoutes from "./routes/coupon.routes.js";
+import adminCouponRoutes from "./routes/admin-coupon.routes.js";
+
 const app = express();
 
 const PORT = Number(process.env.PORT) || 4000;
@@ -127,6 +130,9 @@ app.use("/api/admin/customers", adminCustomerRoutes);
 
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/pc-builder", pcBuilderRoutes);
+
+app.use("/api/coupons", couponRoutes);
+app.use("/api/admin/coupons", adminCouponRoutes);
 
 app.use(notFoundHandler);
 

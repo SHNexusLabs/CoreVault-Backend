@@ -6,6 +6,7 @@ import {
 } from "../generated/prisma/client.js";
 
 import { prisma } from "../lib/prisma.js";
+import { validateCouponWithTransaction } from "./coupon.service.js";
 
 export type CreateOrderItemInput = {
   productId: string;
@@ -18,6 +19,7 @@ export type CreateOrderInput = {
   paymentMethod: PaymentMethod;
   deliveryMethod: DeliveryMethod;
   addressId: string;
+  couponCode?: string;
 };
 
 export type UserOrderListOptions = {
@@ -143,11 +145,24 @@ export async function createOrder(input: CreateOrderInput) {
     }
 
     const shippingCost = new Prisma.Decimal(0);
-    const discount = new Prisma.Decimal(0);
     const tax = new Prisma.Decimal(0);
 
-    const total = subtotal.add(shippingCost).sub(discount).add(tax);
+    let discount = new Prisma.Decimal(0);
+    let appliedCouponId: string | null = null;
 
+    if (input.couponCode) {
+      const couponResult = await validateCouponWithTransaction(
+        tx,
+        input.couponCode,
+        input.userId,
+        subtotal,
+      );
+
+      discount = couponResult.discount;
+      appliedCouponId = couponResult.coupon.id;
+    }
+
+    const total = subtotal.add(shippingCost).sub(discount).add(tax);
     /* Temporary order number. */
     const orderNumber = `TS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -186,6 +201,33 @@ export async function createOrder(input: CreateOrderInput) {
         items: true,
       },
     });
+
+    /*
+     Record coupon usage only after the order exists.
+     This remains inside the same transaction, so if anything
+     fails later, the coupon usage is rolled back too.
+     */
+    if (appliedCouponId) {
+      await tx.couponUsage.create({
+        data: {
+          couponId: appliedCouponId,
+          userId: input.userId,
+          orderId: order.id,
+          amount: discount,
+        },
+      });
+
+      await tx.coupon.update({
+        where: {
+          id: appliedCouponId,
+        },
+        data: {
+          usageCount: {
+            increment: 1,
+          },
+        },
+      });
+    }
 
     /* Remove purchased products from the customer's cart. */
     await tx.cartItem.deleteMany({
