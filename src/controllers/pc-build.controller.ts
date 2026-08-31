@@ -91,6 +91,29 @@ export async function createSavedPCBuild(req: Request, res: Response) {
       build,
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "PC_COMPONENT_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "One or more selected PC components were not found",
+        });
+      }
+
+      if (error.message === "INVALID_PC_COMPONENT") {
+        return res.status(400).json({
+          success: false,
+          message: "One or more selected products are not valid PC components",
+        });
+      }
+
+      if (error.message.startsWith("INVALID_PC_COMPONENT_TYPE:")) {
+        return res.status(400).json({
+          success: false,
+          message: "A selected product does not match its PC component slot",
+        });
+      }
+    }
+
     console.error("Create PC build error:", error);
 
     return res.status(500).json({
@@ -215,11 +238,34 @@ export async function updateSavedPCBuild(req: Request, res: Response) {
       build,
     });
   } catch (error) {
-    if (error instanceof Error && error.message === "PC_BUILD_NOT_FOUND") {
-      return res.status(404).json({
-        success: false,
-        message: "PC build not found",
-      });
+    if (error instanceof Error) {
+      if (error.message === "PC_BUILD_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "PC build not found",
+        });
+      }
+
+      if (error.message === "PC_COMPONENT_NOT_FOUND") {
+        return res.status(404).json({
+          success: false,
+          message: "One or more selected PC components were not found",
+        });
+      }
+
+      if (error.message === "INVALID_PC_COMPONENT") {
+        return res.status(400).json({
+          success: false,
+          message: "One or more selected products are not valid PC components",
+        });
+      }
+
+      if (error.message.startsWith("INVALID_PC_COMPONENT_TYPE:")) {
+        return res.status(400).json({
+          success: false,
+          message: "A selected product does not match its PC component slot",
+        });
+      }
     }
 
     console.error("Update PC build error:", error);

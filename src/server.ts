@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 
 /* Routes imports */
 import authRoutes from "./routes/auth.routes.js";
@@ -43,8 +45,47 @@ const app = express();
 
 const PORT = Number(process.env.PORT) || 4000;
 
-app.use(cors());
-app.use(express.json());
+/* CORS */
+const frontendUrl = process.env.FRONTEND_URL;
+
+app.use(
+  cors({
+    origin: frontendUrl || "http://localhost:3000",
+    credentials: true,
+  }),
+);
+
+/* Helmet */
+app.use(helmet());
+
+/*
+ * Limit JSON request bodies to prevent unnecessarily large
+ */
+app.use(express.json({ limit: "1mb" }));
+
+/* General API rate limit. */
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many authentication attempts. Please try again later.",
+  },
+});
+
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+
+app.use("/api", apiLimiter);
 
 /* Routes */
 app.get("/api/health", (_req, res) => {

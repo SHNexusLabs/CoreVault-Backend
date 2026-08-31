@@ -126,6 +126,7 @@ export async function getAdminReturn(returnId: string) {
           phone: true,
         },
       },
+
       order: {
         select: {
           id: true,
@@ -134,12 +135,25 @@ export async function getAdminReturn(returnId: string) {
           total: true,
         },
       },
+
       items: {
         include: {
           orderItem: true,
         },
       },
-      approvedBy: {
+
+      // Admin who approved the return request.
+      returnApprovedBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      },
+
+      // Admin who approved the refund.
+      refundApprovedBy: {
         select: {
           id: true,
           name: true,

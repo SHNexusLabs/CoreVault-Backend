@@ -33,12 +33,14 @@ export async function authenticate(
   const token = authorization.slice(7);
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET as string) as {
-      userId?: string;
-      role?: "CUSTOMER" | "ADMIN" | "SUPER_ADMIN";
-    };
+    const payload = jwt.verify(token, JWT_SECRET as string);
 
-    if (!payload.userId) {
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      !("userId" in payload) ||
+      typeof payload.userId !== "string"
+    ) {
       return res.status(401).json({
         success: false,
         message: "Invalid authentication token",

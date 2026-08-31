@@ -2,12 +2,7 @@ import { Prisma } from "../generated/prisma/client.js";
 
 import { prisma } from "../lib/prisma.js";
 
-/*
- * Returns the authenticated user's cart.
- *
- * Product information is included so the frontend can render
- * the cart without making a separate request for every item.
- */
+/* Returns the authenticated user's cart. */
 export async function getCart(userId: string) {
   return prisma.cart.findUnique({
     where: {
@@ -38,12 +33,7 @@ export async function getCart(userId: string) {
   });
 }
 
-/*
- * Adds a product to the user's cart.
- *
- * If the product is already there, its quantity is increased
- * instead of creating a duplicate cart item.
- */
+/* Adds a product to the user's cart. */
 export async function addToCart(
   userId: string,
   productId: string,
@@ -142,9 +132,7 @@ export async function addToCart(
   });
 }
 
-/*
- * Updates the quantity of an existing cart item.
- */
+/* Updates the quantity of an existing cart item. */
 export async function updateCartItem(
   userId: string,
   productId: string,
@@ -208,9 +196,7 @@ export async function updateCartItem(
   return getCart(userId);
 }
 
-/*
- * Removes one product from the cart.
- */
+/* Removes one product from the cart. */
 export async function removeFromCart(userId: string, productId: string) {
   const cart = await prisma.cart.findUnique({
     where: {
@@ -244,11 +230,7 @@ export async function removeFromCart(userId: string, productId: string) {
   return getCart(userId);
 }
 
-/*
- * Removes every item from the user's cart.
- *
- * The cart itself remains so the same cart can be reused.
- */
+/* Removes every item from the user's cart. */
 export async function clearCart(userId: string) {
   const cart = await prisma.cart.findUnique({
     where: {

@@ -117,6 +117,7 @@ export async function updateRefundStatus(
   status: RefundStatus,
 ) {
   return prisma.$transaction(async (tx) => {
+    /* Load the return request first. */
     const returnRequest = await tx.returnRequest.findUnique({
       where: {
         id: returnId,
@@ -134,6 +135,18 @@ export async function updateRefundStatus(
       },
     });
 
+    if (!returnRequest) {
+      throw new Error("RETURN_NOT_FOUND");
+    }
+
+    /* Prevent invalid refund state transitions.  */
+    if (
+      !allowedRefundTransitions[returnRequest.refundStatus].includes(status)
+    ) {
+      throw new Error("INVALID_REFUND_STATUS_TRANSITION");
+    }
+
+    /* Only update the refund after all validation has passed. */
     const updatedReturn = await tx.returnRequest.update({
       where: {
         id: returnId,
@@ -152,16 +165,10 @@ export async function updateRefundStatus(
       },
     });
 
-    if (!returnRequest) {
-      throw new Error("RETURN_NOT_FOUND");
-    }
-
-    if (
-      !allowedRefundTransitions[returnRequest.refundStatus].includes(status)
-    ) {
-      throw new Error("INVALID_REFUND_STATUS_TRANSITION");
-    }
-
+    /*
+     * Notify the customer when the refund reaches a final
+     * success/failure state.
+     */
     const notificationMessages: Partial<
       Record<
         RefundStatus,
@@ -200,7 +207,6 @@ export async function updateRefundStatus(
     return updatedReturn;
   });
 }
-
 export async function startRefundProcessing(returnId: string) {
   return prisma.$transaction(async (tx) => {
     const returnRequest = await tx.returnRequest.findUnique({

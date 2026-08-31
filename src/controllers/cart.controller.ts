@@ -18,11 +18,7 @@ const updateCartItemSchema = z.object({
   quantity: z.number().int().positive(),
 });
 
-/*
- * GET /api/cart
- *
- * Returns the authenticated user's cart.
- */
+/* GET /api/cart */
 export async function getCustomerCart(req: Request, res: Response) {
   const userId = req.user?.id;
 
@@ -50,11 +46,7 @@ export async function getCustomerCart(req: Request, res: Response) {
   }
 }
 
-/*
- * POST /api/cart/items
- *
- * Adds a product to the authenticated user's cart.
- */
+/* POST /api/cart/items */
 export async function addCustomerCartItem(req: Request, res: Response) {
   const userId = req.user?.id;
 
@@ -120,11 +112,7 @@ export async function addCustomerCartItem(req: Request, res: Response) {
   }
 }
 
-/*
- * PATCH /api/cart/items/:productId
- *
- * Changes the quantity of an existing cart item.
- */
+/* PATCH /api/cart/items/:productId */
 export async function updateCustomerCartItem(req: Request, res: Response) {
   const userId = req.user?.id;
   const productId = req.params.productId;
@@ -201,11 +189,7 @@ export async function updateCustomerCartItem(req: Request, res: Response) {
   }
 }
 
-/*
- * DELETE /api/cart/items/:productId
- *
- * Removes one product from the cart.
- */
+/* DELETE /api/cart/items/:productId */
 export async function removeCustomerCartItem(req: Request, res: Response) {
   const userId = req.user?.id;
   const productId = req.params.productId;
@@ -258,11 +242,7 @@ export async function removeCustomerCartItem(req: Request, res: Response) {
   }
 }
 
-/*
- * DELETE /api/cart
- *
- * Removes every item while keeping the cart itself.
- */
+/* DELETE /api/cart */
 export async function clearCustomerCart(req: Request, res: Response) {
   const userId = req.user?.id;
 

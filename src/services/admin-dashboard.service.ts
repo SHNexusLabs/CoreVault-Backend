@@ -2,13 +2,7 @@ import { Prisma } from "../generated/prisma/client.js";
 
 import { prisma } from "../lib/prisma.js";
 
-/*
- * Returns aggregated statistics for the admin dashboard.
- *
- * All values are calculated directly from the database so the
- * dashboard cannot become stale because of manually maintained
- * counters.
- */
+/* Returns aggregated statistics for the admin dashboard. */
 export async function getAdminDashboardStats() {
   const [
     totalProducts,
@@ -24,7 +18,7 @@ export async function getAdminDashboardStats() {
     pendingReviews,
     approvedReviews,
     revenueResult,
-    lowStockProducts,
+    activeProductStock,
   ] = await Promise.all([
     prisma.product.count(),
 
@@ -86,35 +80,39 @@ export async function getAdminDashboardStats() {
       },
     }),
 
-    /*
-     * Cancelled orders should not count as revenue.
-     *
-     * We use Prisma aggregate so Decimal values remain precise.
-     */
     prisma.order.aggregate({
       where: {
         status: {
           not: "CANCELLED",
         },
-        paymentStatus: {
-          in: ["PAID", "PENDING"],
-        },
+        paymentStatus: "PAID",
       },
       _sum: {
         total: true,
       },
     }),
 
-    prisma.product.count({
+    /*Prisma does not directly compare stock <= lowStockAt*/
+    prisma.product.findMany({
       where: {
         isActive: true,
-        stock: {
-          lte: 5,
-        },
+      },
+      select: {
+        stock: true,
+        lowStockAt: true,
       },
     }),
   ]);
 
+  /*
+   A product is considered low-stock when its current stock
+   reaches or falls below its configured threshold.
+   */
+  const lowStockProducts = activeProductStock.filter(
+    (product) => product.stock <= product.lowStockAt,
+  ).length;
+
+  /* Prisma Decimal keeps monetary calculations precise. */
   const revenue = revenueResult._sum.total ?? new Prisma.Decimal(0);
 
   return {
