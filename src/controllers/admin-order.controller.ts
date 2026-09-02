@@ -4,13 +4,13 @@ import { z } from "zod";
 import {
   getAdminOrder,
   getAdminOrders,
+  getAdminOrderTimeline,
   updateOrderStatus,
 } from "../services/admin-order.service.js";
 
 import { updatePaymentStatus } from "../services/payment.service.js";
 
-import { PaymentStatus } from "../generated/prisma/client.js";
-import { OrderStatus } from "../generated/prisma/client.js";
+import { OrderStatus, PaymentStatus } from "../generated/prisma/client.js";
 
 const updateStatusSchema = z.object({
   status: z.enum(OrderStatus),
@@ -25,7 +25,15 @@ const adminOrderQuerySchema = z.object({
 
   limit: z.coerce.number().int().min(1).max(100).default(20),
 
+  search: z.string().trim().min(1).optional(),
+
   status: z.enum(OrderStatus).optional(),
+
+  paymentStatus: z.enum(PaymentStatus).optional(),
+
+  from: z.coerce.date().optional(),
+
+  to: z.coerce.date().optional(),
 });
 
 export async function updateAdminPaymentStatus(req: Request, res: Response) {
@@ -91,6 +99,15 @@ export async function getAdminOrderList(req: Request, res: Response) {
       message: "Invalid order query",
       errors: result.error.flatten().fieldErrors,
     });
+  }
+
+  if (result.data.from && result.data.to) {
+    if (result.data.to < result.data.from) {
+      return res.status(400).json({
+        success: false,
+        message: "`to` date cannot be earlier than `from` date",
+      });
+    }
   }
 
   try {
@@ -165,7 +182,7 @@ export async function updateAdminOrderStatus(req: Request, res: Response) {
   }
 
   try {
-    const order = await updateOrderStatus(id, result.data.status);
+    const order = await updateOrderStatus(id, result.data.status, req.user!.id);
 
     return res.status(200).json({
       success: true,
@@ -194,6 +211,43 @@ export async function updateAdminOrderStatus(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: "Unable to update order status",
+    });
+  }
+}
+
+export async function getAdminOrderTimelineController(
+  req: Request,
+  res: Response,
+) {
+  const id = req.params.id;
+
+  if (typeof id !== "string" || !id) {
+    return res.status(400).json({
+      success: false,
+      message: "Order ID is required",
+    });
+  }
+
+  try {
+    const timeline = await getAdminOrderTimeline(id);
+
+    return res.status(200).json({
+      success: true,
+      timeline,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "ORDER_NOT_FOUND") {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    console.error("Get admin order timeline error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to retrieve order timeline",
     });
   }
 }

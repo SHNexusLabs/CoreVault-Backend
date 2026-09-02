@@ -1,18 +1,73 @@
-import { OrderStatus, Prisma } from "../generated/prisma/client.js";
+import {
+  OrderStatus,
+  PaymentStatus,
+  Prisma,
+} from "../generated/prisma/client.js";
 
 import { prisma } from "../lib/prisma.js";
 
 export type AdminOrderListOptions = {
   page: number;
   limit: number;
+  search?: string;
   status?: OrderStatus;
+  paymentStatus?: PaymentStatus;
+  from?: Date;
+  to?: Date;
 };
 
 export async function getAdminOrders(options: AdminOrderListOptions) {
-  const { page, limit, status } = options;
+  const { page, limit, search, status, paymentStatus, from, to } = options;
 
-  const where = {
+  const where: Prisma.OrderWhereInput = {
     ...(status ? { status } : {}),
+    ...(paymentStatus ? { paymentStatus } : {}),
+    ...(from || to
+      ? {
+          createdAt: {
+            ...(from ? { gte: from } : {}),
+            ...(to ? { lte: to } : {}),
+          },
+        }
+      : {}),
+    ...(search
+      ? {
+          OR: [
+            {
+              orderNumber: {
+                contains: search,
+                mode: "insensitive",
+              },
+            },
+            {
+              user: {
+                name: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+            },
+            {
+              user: {
+                email: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+            },
+            {
+              items: {
+                some: {
+                  productName: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+              },
+            },
+          ],
+        }
+      : {}),
   };
 
   const skip = (page - 1) * limit;
@@ -22,9 +77,11 @@ export async function getAdminOrders(options: AdminOrderListOptions) {
       where,
       skip,
       take: limit,
+
       orderBy: {
         createdAt: "desc",
       },
+
       include: {
         user: {
           select: {
@@ -34,6 +91,7 @@ export async function getAdminOrders(options: AdminOrderListOptions) {
             phone: true,
           },
         },
+
         items: {
           select: {
             id: true,
@@ -55,6 +113,7 @@ export async function getAdminOrders(options: AdminOrderListOptions) {
 
   return {
     orders,
+
     pagination: {
       page,
       limit,
@@ -63,11 +122,13 @@ export async function getAdminOrders(options: AdminOrderListOptions) {
     },
   };
 }
+
 export async function getAdminOrder(orderId: string) {
   const order = await prisma.order.findUnique({
     where: {
       id: orderId,
     },
+
     include: {
       user: {
         select: {
@@ -77,7 +138,47 @@ export async function getAdminOrder(orderId: string) {
           phone: true,
         },
       },
-      items: true,
+
+      items: {
+        select: {
+          id: true,
+          productId: true,
+          productName: true,
+          sku: true,
+          unitPrice: true,
+          quantity: true,
+          subtotal: true,
+
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              images: true,
+            },
+          },
+        },
+      },
+
+      returnRequests: {
+        include: {
+          items: {
+            include: {
+              orderItem: {
+                select: {
+                  id: true,
+                  productName: true,
+                  sku: true,
+                },
+              },
+            },
+          },
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
     },
   });
 
@@ -91,9 +192,17 @@ export async function getAdminOrder(orderId: string) {
 /*
  * Defines the allowed order status transitions.
  *
- * We intentionally keep this state machine in the service layer
- * so the same business rules apply regardless of which admin UI
- * calls the API.
+ * PENDING
+ *   ↓
+ * PROCESSING
+ *   ↓
+ * SHIPPED
+ *   ↓
+ * DELIVERED
+ *
+ * PENDING / PROCESSING
+ *        ↓
+ *    CANCELLED
  */
 const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
   PENDING: [OrderStatus.PROCESSING, OrderStatus.CANCELLED],
@@ -108,19 +217,26 @@ const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
 };
 
 /*
- * Only the order status is changed here.
+ * Updates order status.
  *
- * Payment status and payment processing will be handled
- * separately once we integrate the payment flow.
+ * The admin user ID is required so the change can be
+ * recorded in AdminActivity.
  */
-export async function updateOrderStatus(orderId: string, status: OrderStatus) {
+export async function updateOrderStatus(
+  orderId: string,
+  status: OrderStatus,
+  adminUserId: string,
+) {
   return prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: {
         id: orderId,
       },
+
       select: {
         status: true,
+        orderNumber: true,
+
         items: {
           select: {
             productId: true,
@@ -134,16 +250,18 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
       throw new Error("ORDER_NOT_FOUND");
     }
 
-    if (!allowedTransitions[order.status].includes(status)) {
+    const previousStatus = order.status;
+
+    if (!allowedTransitions[previousStatus].includes(status)) {
       throw new Error("INVALID_STATUS_TRANSITION");
     }
 
     /*
-     * When an order is cancelled, return all purchased
+     * When cancelling an order, restore the purchased
      * quantities to product inventory.
      *
-     * This happens inside the same transaction as the status
-     * change, so stock and order status cannot get out of sync.
+     * This happens inside the same transaction as the
+     * status update.
      */
     if (status === OrderStatus.CANCELLED) {
       for (const item of order.items) {
@@ -151,6 +269,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
           where: {
             id: item.productId,
           },
+
           data: {
             stock: {
               increment: item.quantity,
@@ -164,21 +283,28 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
       where: {
         id: orderId,
       },
+
       data: {
         status,
       },
-      include: {
+
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        updatedAt: true,
+
         user: {
           select: {
             id: true,
-            name: true,
-            email: true,
           },
         },
-        items: true,
       },
     });
 
+    /*
+     * Create customer notification.
+     */
     const notificationMessages: Record<
       OrderStatus,
       {
@@ -188,43 +314,135 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
     > = {
       PENDING: {
         title: "Order pending",
-        message: `Your order ${updatedOrder.orderNumber} is pending.`,
+        message: `Your order ${order.orderNumber} is pending.`,
       },
 
       PROCESSING: {
         title: "Order processing",
-        message: `Your order ${updatedOrder.orderNumber} is now being processed.`,
+        message: `Your order ${order.orderNumber} is now being processed.`,
       },
 
       SHIPPED: {
         title: "Order shipped",
-        message: `Your order ${updatedOrder.orderNumber} has been shipped.`,
+        message: `Your order ${order.orderNumber} has been shipped.`,
       },
 
       DELIVERED: {
         title: "Order delivered",
-        message: `Your order ${updatedOrder.orderNumber} has been delivered.`,
+        message: `Your order ${order.orderNumber} has been delivered.`,
       },
 
       CANCELLED: {
         title: "Order cancelled",
-        message: `Your order ${updatedOrder.orderNumber} has been cancelled.`,
+        message: `Your order ${order.orderNumber} has been cancelled.`,
       },
     };
 
-    const notification = notificationMessages[updatedOrder.status];
+    const notification = notificationMessages[status];
 
     await tx.notification.create({
       data: {
         userId: updatedOrder.user.id,
+
         title: notification.title,
         message: notification.message,
-        type: `ORDER_${updatedOrder.status}`,
+
+        type: `ORDER_${status}`,
+
         entityType: "ORDER",
         entityId: updatedOrder.id,
       },
     });
 
-    return updatedOrder;
+    /*
+     * Record the admin action.
+     *
+     * This becomes the source for the order timeline
+     * and the global admin activity log.
+     */
+    await tx.adminActivity.create({
+      data: {
+        userId: adminUserId,
+
+        action: "ORDER_STATUS_UPDATED",
+
+        entityType: "ORDER",
+        entityId: orderId,
+
+        metadata: {
+          from: previousStatus,
+          to: status,
+        },
+      },
+    });
+
+    return {
+      id: updatedOrder.id,
+      orderNumber: updatedOrder.orderNumber,
+      status: updatedOrder.status,
+      updatedAt: updatedOrder.updatedAt,
+    };
+  });
+}
+
+export async function getAdminOrderTimeline(orderId: string) {
+  const order = await prisma.order.findUnique({
+    where: {
+      id: orderId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!order) {
+    throw new Error("ORDER_NOT_FOUND");
+  }
+
+  const activities = await prisma.adminActivity.findMany({
+    where: {
+      entityType: "ORDER",
+      entityId: orderId,
+    },
+
+    orderBy: {
+      createdAt: "asc",
+    },
+
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  return activities.map((activity) => {
+    const metadata =
+      activity.metadata &&
+      typeof activity.metadata === "object" &&
+      !Array.isArray(activity.metadata)
+        ? (activity.metadata as {
+            from?: string;
+            to?: string;
+          })
+        : {};
+
+    let action = activity.action;
+
+    if (activity.action === "ORDER_STATUS_UPDATED" && metadata.to) {
+      action = `Order status changed to ${metadata.to}`;
+    }
+
+    return {
+      id: activity.id,
+      type: "order",
+      action,
+      user: activity.user?.name ?? "System",
+      timestamp: activity.createdAt,
+    };
   });
 }

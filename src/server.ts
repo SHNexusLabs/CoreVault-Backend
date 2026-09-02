@@ -37,6 +37,7 @@ import adminDashboardRoutes from "./routes/admin-dashboard.routes.js";
 import adminInventoryRoutes from "./routes/admin-inventory.routes.js";
 import adminActivityRoutes from "./routes/admin-activity.routes.js";
 import adminCustomerRoutes from "./routes/admin-customer.routes.js";
+import adminAnalyticsRoutes from "./routes/admin-analytics.routes.js";
 
 import notificationRoutes from "./routes/notification.routes.js";
 import pcBuilderRoutes from "./routes/pc-builder.routes.js";
@@ -127,6 +128,7 @@ app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/admin/inventory", adminInventoryRoutes);
 app.use("/api/admin/activity", adminActivityRoutes);
 app.use("/api/admin/customers", adminCustomerRoutes);
+app.use("/api/admin/analytics", adminAnalyticsRoutes);
 
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/pc-builder", pcBuilderRoutes);

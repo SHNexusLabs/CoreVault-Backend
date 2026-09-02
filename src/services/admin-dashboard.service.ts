@@ -4,22 +4,36 @@ import { prisma } from "../lib/prisma.js";
 
 /* Returns aggregated statistics for the admin dashboard. */
 export async function getAdminDashboardStats() {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
   const [
     totalProducts,
     activeProducts,
+    activeProductStock,
+    outOfStockProducts,
+
     totalOrders,
     pendingOrders,
     processingOrders,
     shippedOrders,
     deliveredOrders,
     cancelledOrders,
+    paidOrders,
+
     totalCustomers,
+
     totalReviews,
     pendingReviews,
     approvedReviews,
+
     revenueResult,
-    activeProductStock,
+    todayRevenueResult,
+
+    paymentVerification,
+    pendingReturns,
   ] = await Promise.all([
+    /* Products */
     prisma.product.count(),
 
     prisma.product.count({
@@ -28,6 +42,24 @@ export async function getAdminDashboardStats() {
       },
     }),
 
+    prisma.product.findMany({
+      where: {
+        isActive: true,
+      },
+      select: {
+        stock: true,
+        lowStockAt: true,
+      },
+    }),
+
+    prisma.product.count({
+      where: {
+        isActive: true,
+        stock: 0,
+      },
+    }),
+
+    /* Orders */
     prisma.order.count(),
 
     prisma.order.count({
@@ -60,12 +92,23 @@ export async function getAdminDashboardStats() {
       },
     }),
 
+    prisma.order.count({
+      where: {
+        status: {
+          not: "CANCELLED",
+        },
+        paymentStatus: "PAID",
+      },
+    }),
+
+    /* Customers */
     prisma.user.count({
       where: {
         role: "CUSTOMER",
       },
     }),
 
+    /* Reviews */
     prisma.review.count(),
 
     prisma.review.count({
@@ -80,6 +123,7 @@ export async function getAdminDashboardStats() {
       },
     }),
 
+    /* Lifetime revenue */
     prisma.order.aggregate({
       where: {
         status: {
@@ -92,34 +136,65 @@ export async function getAdminDashboardStats() {
       },
     }),
 
-    /*Prisma does not directly compare stock <= lowStockAt*/
-    prisma.product.findMany({
+    /* Today's revenue */
+    prisma.order.aggregate({
       where: {
-        isActive: true,
+        createdAt: {
+          gte: todayStart,
+        },
+        status: {
+          not: "CANCELLED",
+        },
+        paymentStatus: "PAID",
       },
-      select: {
-        stock: true,
-        lowStockAt: true,
+      _sum: {
+        total: true,
+      },
+    }),
+
+    /*
+     * Orders requiring payment verification.
+     *
+     * COD orders are excluded because their payment is expected
+     * at delivery rather than online verification.
+     */
+    prisma.order.count({
+      where: {
+        status: {
+          not: "CANCELLED",
+        },
+        paymentStatus: "PENDING",
+        paymentMethod: {
+          not: "COD",
+        },
+      },
+    }),
+
+    /* Customer return requests waiting for admin action */
+    prisma.returnRequest.count({
+      where: {
+        status: "REQUESTED",
       },
     }),
   ]);
 
   /*
-   A product is considered low-stock when its current stock
-   reaches or falls below its configured threshold.
+   * Product is low-stock when stock reaches its configured threshold.
    */
   const lowStockProducts = activeProductStock.filter(
     (product) => product.stock <= product.lowStockAt,
   ).length;
 
-  /* Prisma Decimal keeps monetary calculations precise. */
   const revenue = revenueResult._sum.total ?? new Prisma.Decimal(0);
+
+  const todayRevenue = todayRevenueResult._sum.total ?? new Prisma.Decimal(0);
 
   return {
     products: {
       total: totalProducts,
       active: activeProducts,
       lowStock: lowStockProducts,
+      outOfStock: outOfStockProducts,
     },
 
     orders: {
@@ -129,6 +204,7 @@ export async function getAdminDashboardStats() {
       shipped: shippedOrders,
       delivered: deliveredOrders,
       cancelled: cancelledOrders,
+      paid: paidOrders,
     },
 
     customers: {
@@ -141,6 +217,17 @@ export async function getAdminDashboardStats() {
       approved: approvedReviews,
     },
 
-    revenue,
+    revenue: {
+      total: revenue,
+      today: todayRevenue,
+    },
+
+    alerts: {
+      processingOrders,
+      paymentVerification,
+      lowStockProducts,
+      pendingReturns,
+      outOfStockProducts,
+    },
   };
 }
