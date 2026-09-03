@@ -108,6 +108,11 @@ export async function getAdminCategories() {
       slug: true,
       parentId: true,
       isActive: true,
+      _count: {
+        select: {
+          products: true,
+        },
+      },
     },
   });
 }
