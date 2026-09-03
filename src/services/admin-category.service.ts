@@ -93,3 +93,21 @@ export async function deleteCategory(id: string) {
     throw error;
   }
 }
+
+export async function getAdminCategories() {
+  return prisma.category.findMany({
+    where: {
+      isActive: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      parentId: true,
+      isActive: true,
+    },
+  });
+}

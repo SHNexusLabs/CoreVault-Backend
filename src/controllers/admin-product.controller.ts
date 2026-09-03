@@ -4,35 +4,14 @@ import { z } from "zod";
 import {
   createProduct,
   deleteProduct,
+  getAdminProduct,
+  getAdminProducts,
   updateProduct,
 } from "../services/admin-product.service.js";
 
-/*
- * Product images are stored as a JSON array.
- *
- * Example:
- * [
- *   "/images/products/rtx-4060-front.webp",
- *   "/images/products/rtx-4060-back.webp"
- * ]
- */
+/* Product images are stored as a JSON array. */
 const imagesSchema = z.array(z.string()).optional();
 
-/*
- * Product specifications are stored as JSON so different
- * product categories can have different specifications.
- *
- * Example:
- * {
- *   "socket": "AM5",
- *   "cores": 8,
- *   "threads": 16,
- *   "tdp": 65
- * }
- *
- * We currently allow simple JSON values here:
- * string, number and boolean.
- */
 const specificationsSchema = z
   .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
   .optional();
@@ -69,15 +48,65 @@ const productSchema = z.object({
   dealEnd: z.coerce.date().optional(),
 });
 
+const adminProductQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+
+  search: z.string().trim().min(1).optional(),
+
+  categoryId: z.string().uuid().optional(),
+
+  brandId: z.string().uuid().optional(),
+
+  stockStatus: z
+  .enum([
+    "in_stock",
+    "low_stock",
+    "out_of_stock",
+  ])
+  .optional(),
+
+  isActive: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
+});
+
 const updateProductSchema = productSchema.partial();
 
+/* GET /api/admin/products */
+export async function getAdminProductList(req: Request, res: Response) {
+  const result = adminProductQuerySchema.safeParse(req.query);
+
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid product query",
+      errors: result.error.flatten().fieldErrors,
+    });
+  }
+
+  try {
+    const data = await getAdminProducts(result.data);
+
+    return res.status(200).json({
+      success: true,
+      ...data,
+    });
+  } catch (error) {
+    console.error("Get admin products error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to retrieve products",
+    });
+  }
+}
+
 /*
- * POST /api/admin/products
- *
- * Creates a new product.
- *
- * Authentication and ADMIN/SUPER_ADMIN authorization are handled
- * by the route middleware before this controller is reached.
+  POST /api/admin/products
+  Creates a new product.
  */
 export async function createAdminProduct(req: Request, res: Response) {
   const result = productSchema.safeParse(req.body);
@@ -133,7 +162,6 @@ export async function createAdminProduct(req: Request, res: Response) {
 
 /*
  * PATCH /api/admin/products/:id
- *
  * Updates only the fields supplied by the admin.
  */
 export async function updateAdminProduct(req: Request, res: Response) {
@@ -206,14 +234,7 @@ export async function updateAdminProduct(req: Request, res: Response) {
   }
 }
 
-/*
- * DELETE /api/admin/products/:id
- *
- * This performs a soft delete.
- *
- * The product remains in the database so historical orders can
- * continue referencing it, but isActive becomes false.
- */
+/* DELETE /api/admin/products/:id */
 export async function deleteAdminProduct(req: Request, res: Response) {
   const id = req.params.id;
 
@@ -244,6 +265,47 @@ export async function deleteAdminProduct(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: "Unable to remove product",
+    });
+  }
+}
+
+/* GET /api/admin/products/:id */
+export async function getAdminProductDetails(
+  req: Request,
+  res: Response,
+) {
+  const id = req.params.id;
+
+  if (typeof id !== "string" || !id) {
+    return res.status(400).json({
+      success: false,
+      message: "Product ID is required",
+    });
+  }
+
+  try {
+    const product = await getAdminProduct(id);
+
+    return res.status(200).json({
+      success: true,
+      product,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "PRODUCT_NOT_FOUND"
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    console.error("Get admin product error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to retrieve product",
     });
   }
 }

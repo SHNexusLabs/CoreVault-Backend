@@ -5,6 +5,7 @@ import {
   createBrand,
   deleteBrand,
   updateBrand,
+  getAdminBrands,
 } from "../services/admin-brand.service.js";
 
 const brandSchema = z.object({
@@ -122,5 +123,23 @@ export async function deleteAdminBrand(req: Request, res: Response) {
     }
 
     throw error;
+  }
+}
+
+export async function getAdminBrandList(req: Request, res: Response) {
+  try {
+    const brands = await getAdminBrands();
+
+    return res.status(200).json({
+      success: true,
+      brands,
+    });
+  } catch (error) {
+    console.error("Get admin brands error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to retrieve brands",
+    });
   }
 }

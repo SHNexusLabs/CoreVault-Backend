@@ -5,6 +5,7 @@ import {
   createCategory,
   deleteCategory,
   updateCategory,
+  getAdminCategories,
 } from "../services/admin-category.service.js";
 
 const categorySchema = z.object({
@@ -138,5 +139,23 @@ export async function deleteAdminCategory(req: Request, res: Response) {
     }
 
     throw error;
+  }
+}
+
+export async function getAdminCategoryList(req: Request, res: Response) {
+  try {
+    const categories = await getAdminCategories();
+
+    return res.status(200).json({
+      success: true,
+      categories,
+    });
+  } catch (error) {
+    console.error("Get admin categories error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to retrieve categories",
+    });
   }
 }

@@ -9,11 +9,7 @@ export type CreateBrandInput = {
   isActive?: boolean;
 };
 
-/*
- * Creates a brand.
- *
- * Slug is unique, so duplicate brands are handled explicitly.
- */
+/* Creates a brand. */
 export async function createBrand(input: CreateBrandInput) {
   try {
     return await prisma.brand.create({
@@ -62,11 +58,7 @@ export async function updateBrand(
   }
 }
 
-/*
- * Soft delete the brand instead of physically deleting it.
- *
- * Existing products may still reference this brand.
- */
+/* Soft delete the brand instead of physically deleting it. */
 export async function deleteBrand(id: string) {
   try {
     return await prisma.brand.update({
@@ -87,4 +79,22 @@ export async function deleteBrand(id: string) {
 
     throw error;
   }
+}
+
+export async function getAdminBrands() {
+  return prisma.brand.findMany({
+    where: {
+      isActive: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      logo: true,
+      isActive: true,
+    },
+  });
 }
