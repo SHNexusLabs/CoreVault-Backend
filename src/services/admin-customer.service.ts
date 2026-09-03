@@ -44,7 +44,7 @@ export async function getAdminCustomers(options: AdminCustomerListOptions) {
 
   const skip = (page - 1) * limit;
 
-  const [customers, total] = await Promise.all([
+  const [customers, total, activeCustomers, orderStats] = await Promise.all([
     prisma.user.findMany({
       where,
       skip,
@@ -73,10 +73,39 @@ export async function getAdminCustomers(options: AdminCustomerListOptions) {
     prisma.user.count({
       where,
     }),
+
+    prisma.user.count({
+      where: {
+        role: UserRole.CUSTOMER,
+        isActive: true,
+      },
+    }),
+
+    prisma.order.aggregate({
+      where: {
+        user: {
+          role: UserRole.CUSTOMER,
+        },
+      },
+      _count: {
+        _all: true,
+      },
+      _sum: {
+        total: true,
+      },
+    }),
   ]);
 
   return {
     customers,
+
+    stats: {
+      totalCustomers: total,
+      activeCustomers,
+      totalOrders: orderStats._count._all,
+      totalRevenue: orderStats._sum.total ?? 0,
+    },
+
     pagination: {
       page,
       limit,
