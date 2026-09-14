@@ -8,13 +8,19 @@ const activityQuerySchema = z.object({
 
   limit: z.coerce.number().int().min(1).max(100).default(20),
 
+  search: z.string().trim().min(1).optional(),
+
   action: z.string().trim().min(1).optional(),
 
   entityType: z.string().trim().min(1).optional(),
 
-  entityId: z.string().uuid().optional(),
+  entityId: z.string().trim().min(1).optional(),
 
   userId: z.string().uuid().optional(),
+
+  from: z.coerce.date().optional(),
+
+  to: z.coerce.date().optional(),
 });
 
 export async function getAdminActivityList(req: Request, res: Response) {
@@ -28,8 +34,18 @@ export async function getAdminActivityList(req: Request, res: Response) {
     });
   }
 
+  const { from, to } = result.data;
+
+  if (from && to && from > to) {
+    return res.status(400).json({
+      success: false,
+      message: "The 'from' date cannot be after the 'to' date",
+    });
+  }
+
   try {
     const data = await getAdminActivities(result.data);
+
     return res.status(200).json({
       success: true,
       ...data,
