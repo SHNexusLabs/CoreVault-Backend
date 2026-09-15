@@ -379,6 +379,20 @@ model CouponUsage {
   @@map("coupon_usages")
 }
 
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  section     String
+  description String?
+  isSecret    Boolean  @default(false) @map("is_secret")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([section])
+  @@map("system_settings")
+}
+
 enum CouponDiscountType {
   PERCENTAGE
   FIXED

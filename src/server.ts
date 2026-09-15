@@ -41,6 +41,8 @@ import adminAnalyticsRoutes from "./routes/admin-analytics.routes.js";
 import adminPaymentRoutes from "./routes/admin-payment.routes.js";
 import adminInvoiceRoutes from "./routes/admin-invoice.routes.js";
 
+import adminSettingsRoutes from "./routes/admin-settings.routes.js";
+
 import adminStaffRoutes from "./routes/admin-staff.routes.js";
 import adminRolesRoutes from "./routes/admin-roles.routes.js";
 
@@ -68,7 +70,7 @@ app.use(
 app.use(helmet());
 
 /*
- * Limit JSON request bodies to prevent unnecessarily large
+ Limit JSON request bodies to prevent unnecessarily large
  */
 app.use(express.json({ limit: "1mb" }));
 
@@ -139,6 +141,11 @@ app.use("/api/admin/invoices", adminInvoiceRoutes);
 
 app.use("/api/admin/staff", adminStaffRoutes);
 app.use("/api/admin/roles", adminRolesRoutes);
+
+app.use(
+  "/api/admin/settings",
+  adminSettingsRoutes,
+);
 
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/pc-builder", pcBuilderRoutes);

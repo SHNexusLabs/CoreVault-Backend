@@ -210,7 +210,7 @@ const adminPermissionIds = [
   "export",
 ] as const;
 
-async function main() {
+export async function seedPermissions() {
   console.log("🌱 Seeding permissions...");
 
   await prisma.permission.createMany({
@@ -230,12 +230,3 @@ async function main() {
   console.log(`✅ Assigned ${adminPermissionIds.length} permissions to ADMIN`);
   console.log("✅ SUPER_ADMIN automatically has all permissions");
 }
-
-main()
-  .catch((error) => {
-    console.error("❌ Permission seed failed:", error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
